@@ -128,7 +128,7 @@ const Manager = () => {
         </div>
       </form>
       <div className="container mx-auto mt-5 max-w-4xl">
-        <h1 className="text-xl font-bold">
+        <h1 className="text-xl font-bold ml-3">
           Your Passwords <RiLockPasswordFill className="inline-block text-lg" />
         </h1>
         <TableComponent
