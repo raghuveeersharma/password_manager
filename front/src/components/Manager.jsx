@@ -70,16 +70,18 @@ const Manager = () => {
           pass
           <span className="text-purple-600 text-2xl">OP/&gt;</span>
         </div>
-        <div className="text-center text-black mt-1">
+        <div className="text-center text-black mt-1 relative">
           <p>
             Password manager is on duty{" "}
-            <lord-icon
-              src="https://cdn.lordicon.com/pdwpcpva.json"
-              trigger="loop"
-              delay="2500"
-              colors="primary:#ffc738,secondary:#7166ee,tertiary:#b26836"
-              style={{ width: "23px", height: "23px" }}
-            ></lord-icon>
+            <span className="absolute">
+              <lord-icon
+                src="https://cdn.lordicon.com/pdwpcpva.json"
+                trigger="loop"
+                delay="2500"
+                colors="primary:#ffc738,secondary:#7166ee,tertiary:#b26836"
+                style={{ width: "23px", height: "23px" }}
+              ></lord-icon>
+            </span>
           </p>
         </div>
         <div className="flex flex-col gap-5 text-black mt-1">
@@ -128,7 +130,7 @@ const Manager = () => {
         </div>
       </form>
       <div className="container mx-auto mt-5 max-w-4xl">
-        <h1 className="text-xl font-bold ml-3">
+        <h1 className="text-xl font-bold ml-6 md:ml-3">
           Your Passwords <RiLockPasswordFill className="inline-block text-lg" />
         </h1>
         <TableComponent
