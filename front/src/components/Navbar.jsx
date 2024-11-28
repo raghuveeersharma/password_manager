@@ -19,9 +19,14 @@ const Navbar = () => {
           </a>
         </li>
       </ul>
-      <button className="hover:scale-110 text-3xl ">
-        <a href="/" className="">
+      <button className="hover:scale-110 text-4xl ">
+        <a
+          href="https://github.com/raghuveeersharma/password_manager"
+          target="_blank"
+          className=""
+        >
           <FaGithubSquare />
+          <p className="text-xs ">github</p>
         </a>
       </button>
     </nav>
