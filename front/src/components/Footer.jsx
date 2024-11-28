@@ -2,23 +2,28 @@ import React from "react";
 
 const Footer = () => {
   return (
-    <div>
-      <div className="bg-slate-800 flex flex-col items-center p-3 text-white">
-        <div className="logo font-bold text-2xl ">
-          <span className="text-purple-600 text-4xl">&lt;</span>
+    <footer className="bg-slate-800 p-2 text-white">
+      <div className="flex flex-col md:flex-col items-center max-w-5xl mx-auto space-y-3 md:space-y-0">
+        {/* Logo */}
+        <div className="logo font-bold text-2xl md:text-4xl flex justify-center md:justify-start">
+          <span className="text-purple-600">&lt;</span>
           pass
-          <span className="text-purple-600 text-2xl">OP/&gt;</span>
+          <span className="text-purple-600">OP/&gt;</span>
         </div>
-        <div className="text-xs  underline hover:scale-105 cursor-pointer">
+
+        {/* Developer Link */}
+        <div className="text-xs md:text-sm underline hover:scale-105 cursor-pointer text-center ">
           <a
             href="https://www.linkedin.com/in/raghuveer-sharma-810124252/"
             target="_blank"
+            rel="noopener noreferrer"
+            className="transition-transform duration-200 hover:text-purple-400"
           >
             Raghuveer Sharma
           </a>
         </div>
       </div>
-    </div>
+    </footer>
   );
 };
 
