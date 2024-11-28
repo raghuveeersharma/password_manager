@@ -9,16 +9,6 @@ const Navbar = () => {
         pass
         <span className="text-purple-600 text-2xl">OP/&gt;</span>
       </div>
-      <ul>
-        <li className="flex gap-5">
-          <a href="/" className="hover:font-bold">
-            home
-          </a>
-          <a href="/" className="hover:font-bold">
-            about
-          </a>
-        </li>
-      </ul>
       <button className="hover:scale-110 text-4xl ">
         <a
           href="https://github.com/raghuveeersharma/password_manager"
