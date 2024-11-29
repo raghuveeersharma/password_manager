@@ -62,7 +62,7 @@ const Manager = () => {
       <Toaster position="top-center" reverseOrder={false} />
 
       <form
-        className="container mx-auto mt-5 max-w-4xl p-3"
+        className="container mx-auto mt-5 max-w-4xl p-3 "
         onSubmit={savePassword}
       >
         <div className="logo font-bold text-center">
