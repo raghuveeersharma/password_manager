@@ -4,7 +4,7 @@ import { FaRegSadCry } from "react-icons/fa";
 
 const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
   return (
-    <div className="mt-2 px-3 ">
+    <div className="mt-2 px-3 pb-10">
       <Toaster position="top-center" reverseOrder={false} />
 
       {passwordArray.length === 0 ? (
@@ -14,7 +14,7 @@ const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg">
-          <div className="sm:max-h-[calc(100vh-450px)] md:max-h-[calc(100vh-400px)]  overflow-y-auto">
+          <div className=" md:max-h-[calc(100vh-400px)]  overflow-y-auto">
             <table className=" w-full bg-white shadow-md table-auto ">
               <thead className="bg-purple-600 text-white sticky top-0 z-10 ">
                 <tr>
