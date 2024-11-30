@@ -5,4 +5,8 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   base: "/password_manager",
   plugins: [react()],
+  server: {
+    host: "0.0.0.0", // Expose on all network interfaces
+    port: 5173, // Choose a port (default is 5173)
+  },
 });

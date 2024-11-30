@@ -4,7 +4,7 @@ import { FaGithubSquare } from "react-icons/fa";
 const Navbar = () => {
   return (
     <nav className="bg-slate-800 p-1 md:px-5 text-white sticky top-0 z-50 shadow-md">
-      <div className="flex justify-between items-center max-w-6xl mx-auto">
+      <div className="flex justify-between items-center max-w-6xl mx-auto ">
         {/* Logo */}
         <div className="logo font-bold text-2xl md:text-3xl">
           <span className="text-purple-600 text-3xl md:text-4xl">&lt;</span>

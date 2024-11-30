@@ -23,13 +23,18 @@ const Manager = () => {
   }, []);
 
   const savePassword = (e) => {
-    e.preventDefault();
-    const newPassword = { ...form, id: uuidv4() };
-    const updatedArray = [...passwordArray, newPassword];
-    setPasswordArray(updatedArray);
-    localStorage.setItem("passwords", JSON.stringify(updatedArray));
-    toast.success("Password is added!");
-    setForm({ site: "", username: "", password: "" });
+    if (form.site !== "" && form.username !== "" && form.password !== "") {
+      e.preventDefault();
+      const newPassword = { ...form, id: uuidv4() };
+      const updatedArray = [...passwordArray, newPassword];
+      setPasswordArray(updatedArray);
+      localStorage.setItem("passwords", JSON.stringify(updatedArray));
+      toast.success("Password is added!");
+      setForm({ site: "", username: "", password: "" });
+    } else {
+      e.preventDefault();
+      toast.error("All fields are required!");
+    }
   };
 
   const handleChange = (e) => {
