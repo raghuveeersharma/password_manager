@@ -1,10 +1,45 @@
-import React from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { FaRegSadCry } from "react-icons/fa";
+import CryptoJS from "crypto-js";
 
 const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
+  const secretKey = import.meta.env.VITE_SECRET_KEY;
+
+  // Decrypt the password using AES
+  const decryptedPassword = (encryptedPassword) => {
+    const bytes = CryptoJS.AES.decrypt(encryptedPassword, secretKey);
+    return bytes.toString(CryptoJS.enc.Utf8);
+  };
+
+  // Handle copy securely
+  const handleCopy = (encryptedText) => {
+    const userInput = prompt(
+      "Enter your master password to copy the password securely:"
+    );
+    const storedEncrypted = localStorage.getItem("PassManager");
+
+    if (!storedEncrypted) {
+      toast.error("No stored master password.");
+      return;
+    }
+
+    const decryptedStoredPassword = decryptedPassword(storedEncrypted);
+
+    console.log("Entered:", userInput);
+    console.log("Decrypted from storage:", decryptedStoredPassword);
+
+    if (userInput.trim() !== decryptedStoredPassword.trim()) {
+      toast.error("Incorrect password!");
+      return;
+    }
+
+    const decrypted = decryptedPassword(encryptedText);
+    navigator.clipboard.writeText(decrypted);
+    toast.success("Password copied to clipboard!");
+  };
+
   return (
-    <div className="mt-2 px-3 pb-10">
+    <div className=" px-3  ">
       <Toaster position="top-center" reverseOrder={false} />
 
       {passwordArray.length === 0 ? (
@@ -13,8 +48,8 @@ const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
           <FaRegSadCry className="text-3xl text-gray-500 mt-2" />
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg">
-          <div className=" md:max-h-[calc(100vh-400px)]  overflow-y-auto">
+        <div className="overflow-x-auto rounded-lg mb-10">
+          <div className="max-h-96  overflow-y-scroll">
             <table className=" w-full bg-white shadow-md table-auto ">
               <thead className="bg-purple-600 text-white sticky top-0 z-10 ">
                 <tr>
@@ -65,13 +100,10 @@ const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
                       </span>
                     </td>
                     <td className="p-3 text-xs sm:text-sm md:text-base truncate">
-                      {item.password}
+                      *********
                       <span
                         className="ml-2 inline-block sm:ml-3 cursor-pointer"
-                        onClick={() => {
-                          navigator.clipboard.writeText(item.password);
-                          toast.success("Password copied to clipboard!");
-                        }}
+                        onClick={() => handleCopy(item.password)}
                       >
                         <lord-icon
                           src="https://cdn.lordicon.com/iykgtsbt.json"

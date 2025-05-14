@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { RiLockPasswordFill } from "react-icons/ri";
 import { IoMdEye } from "react-icons/io";
 import { FaEyeSlash } from "react-icons/fa";
 import TableComponent from "./TableComponent";
 import { Toaster, toast } from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
+import CryptoJS from "crypto-js";
 
 const Manager = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +16,8 @@ const Manager = () => {
     password: "",
   });
 
+  // Check if the password is already saved in local storage
+  // when the component mounts
   useEffect(() => {
     const passwords = localStorage.getItem("passwords");
     if (passwords) {
@@ -22,10 +25,18 @@ const Manager = () => {
     }
   }, []);
 
+  // Function to save a password
+  // to the password array
   const savePassword = (e) => {
     if (form.site !== "" && form.username !== "" && form.password !== "") {
       e.preventDefault();
       const newPassword = { ...form, id: uuidv4() };
+      const secretKey = import.meta.env.VITE_SECRET_KEY;
+      const encryptedPassword = CryptoJS.AES.encrypt(
+        newPassword.password,
+        secretKey
+      ).toString();
+      newPassword.password = encryptedPassword;
       const updatedArray = [...passwordArray, newPassword];
       setPasswordArray(updatedArray);
       localStorage.setItem("passwords", JSON.stringify(updatedArray));
@@ -41,6 +52,8 @@ const Manager = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // Function to delete a password
+  // from the password array
   const deletePassword = (id) => {
     if (confirm("Are you sure you want to delete this password?")) {
       const updatedArray = passwordArray.filter((item) => item.id !== id);
@@ -50,6 +63,8 @@ const Manager = () => {
     }
   };
 
+  // Function to handle editing a password
+  // from the password array
   const handelEdit = (id) => {
     const selectedItem = passwordArray.find((item) => item.id === id);
     if (selectedItem) {
@@ -61,13 +76,13 @@ const Manager = () => {
 
   return (
     <>
-      <div class="absolute inset-0 -z-10 h-full w-full bg-purple-100 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
-        <div class="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-fuchsia-400 opacity-20 blur-[100px]"></div>
+      <div className="absolute inset-0 -z-10 h-full w-full bg-purple-100 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
+        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-fuchsia-400 opacity-20 blur-[100px]"></div>
       </div>
       <Toaster position="top-center" reverseOrder={false} />
 
       <form
-        className="container mx-auto mt-5 max-w-4xl p-3 "
+        className="container mx-auto max-w-4xl p-3 "
         onSubmit={savePassword}
       >
         <div className="logo font-bold text-center">
