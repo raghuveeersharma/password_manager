@@ -1,9 +1,14 @@
-import { Toaster, toast } from "react-hot-toast";
+import { useState } from "react";
+import { toast } from "react-hot-toast";
 import { FaRegSadCry } from "react-icons/fa";
+import { IoMdEye } from "react-icons/io";
+import { FaEyeSlash } from "react-icons/fa";
 import CryptoJS from "crypto-js";
 
 const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
   const secretKey = import.meta.env.VITE_SECRET_KEY;
+  // id -> decrypted password, only for rows the user has revealed
+  const [revealed, setRevealed] = useState({});
 
   // Decrypt the password using AES
   const decryptedPassword = (encryptedPassword) => {
@@ -11,37 +16,49 @@ const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
     return bytes.toString(CryptoJS.enc.Utf8);
   };
 
-  // Handle copy securely
-  const handleCopy = (encryptedText) => {
-    const userInput = prompt(
-      "Enter your master password to copy the password securely:"
-    );
+  // Ask for the master password; returns true only if it matches
+  const verifyMaster = (message) => {
+    const userInput = prompt(message);
+    if (userInput === null) return false; // cancelled
     const storedEncrypted = localStorage.getItem("PassManager");
 
     if (!storedEncrypted) {
       toast.error("No stored master password.");
-      return;
+      return false;
     }
 
-    const decryptedStoredPassword = decryptedPassword(storedEncrypted);
-
-    console.log("Entered:", userInput);
-    console.log("Decrypted from storage:", decryptedStoredPassword);
-
-    if (userInput.trim() !== decryptedStoredPassword.trim()) {
+    if (userInput.trim() !== decryptedPassword(storedEncrypted).trim()) {
       toast.error("Incorrect password!");
+      return false;
+    }
+    return true;
+  };
+
+  // Handle copy securely
+  const handleCopy = (encryptedText) => {
+    if (
+      !verifyMaster("Enter your master password to copy the password securely:")
+    )
+      return;
+    navigator.clipboard.writeText(decryptedPassword(encryptedText));
+    toast.success("Password copied to clipboard!");
+  };
+
+  // Show or hide a password in the table (hiding needs no prompt)
+  const toggleReveal = (item) => {
+    if (revealed[item.id] !== undefined) {
+      const rest = { ...revealed };
+      delete rest[item.id];
+      setRevealed(rest);
       return;
     }
-
-    const decrypted = decryptedPassword(encryptedText);
-    navigator.clipboard.writeText(decrypted);
-    toast.success("Password copied to clipboard!");
+    if (!verifyMaster("Enter your master password to reveal the password:"))
+      return;
+    setRevealed({ ...revealed, [item.id]: decryptedPassword(item.password) });
   };
 
   return (
     <div className=" px-3  ">
-      <Toaster position="top-center" reverseOrder={false} />
-
       {passwordArray.length === 0 ? (
         <div className="flex flex-col items-center mt-3 text-center">
           <p className="text-lg text-gray-600 mt-2">No passwords saved</p>
@@ -68,9 +85,9 @@ const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
                 </tr>
               </thead>
               <tbody className="divide-y  divide-purple-100 ">
-                {passwordArray.map((item, index) => (
+                {passwordArray.map((item) => (
                   <tr
-                    key={index}
+                    key={item.id}
                     className="hover:bg-purple-100 transition-colors"
                   >
                     <td className="p-3 text-xs sm:text-sm md:text-base truncate">
@@ -100,7 +117,19 @@ const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
                       </span>
                     </td>
                     <td className="p-3 text-xs sm:text-sm md:text-base truncate">
-                      *********
+                      {revealed[item.id] !== undefined
+                        ? revealed[item.id]
+                        : "*********"}
+                      <span
+                        className="ml-2 inline-block sm:ml-3 cursor-pointer align-middle"
+                        onClick={() => toggleReveal(item)}
+                      >
+                        {revealed[item.id] !== undefined ? (
+                          <FaEyeSlash />
+                        ) : (
+                          <IoMdEye />
+                        )}
+                      </span>
                       <span
                         className="ml-2 inline-block sm:ml-3 cursor-pointer"
                         onClick={() => handleCopy(item.password)}

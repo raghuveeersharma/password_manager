@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { RiLockPasswordFill } from "react-icons/ri";
 import { IoMdEye } from "react-icons/io";
 import { FaEyeSlash } from "react-icons/fa";
+import { getStrength, generatePassword } from "../utils/password";
 import TableComponent from "./TableComponent";
 import { Toaster, toast } from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
@@ -10,11 +11,14 @@ import CryptoJS from "crypto-js";
 const Manager = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordArray, setPasswordArray] = useState([]);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     site: "",
     username: "",
     password: "",
   });
+  const secretKey = import.meta.env.VITE_SECRET_KEY;
+  const strength = getStrength(form.password);
 
   // Check if the password is already saved in local storage
   // when the component mounts
@@ -25,27 +29,40 @@ const Manager = () => {
     }
   }, []);
 
-  // Function to save a password
-  // to the password array
+  const resetForm = () => {
+    setForm({ site: "", username: "", password: "" });
+    setEditingId(null);
+    setShowPassword(false);
+  };
+
+  // Function to save a password (new entry, or an in-place update when editing)
   const savePassword = (e) => {
-    if (form.site !== "" && form.username !== "" && form.password !== "") {
-      e.preventDefault();
-      const newPassword = { ...form, id: uuidv4() };
-      const secretKey = import.meta.env.VITE_SECRET_KEY;
-      const encryptedPassword = CryptoJS.AES.encrypt(
-        newPassword.password,
-        secretKey
-      ).toString();
-      newPassword.password = encryptedPassword;
-      const updatedArray = [...passwordArray, newPassword];
-      setPasswordArray(updatedArray);
-      localStorage.setItem("passwords", JSON.stringify(updatedArray));
-      toast.success("Password is added!");
-      setForm({ site: "", username: "", password: "" });
-    } else {
-      e.preventDefault();
+    e.preventDefault();
+    if (form.site === "" || form.username === "" || form.password === "") {
       toast.error("All fields are required!");
+      return;
     }
+    const encryptedPassword = CryptoJS.AES.encrypt(
+      form.password,
+      secretKey
+    ).toString();
+    let updatedArray;
+    if (editingId) {
+      updatedArray = passwordArray.map((item) =>
+        item.id === editingId
+          ? { ...form, id: editingId, password: encryptedPassword }
+          : item
+      );
+    } else {
+      updatedArray = [
+        ...passwordArray,
+        { ...form, id: uuidv4(), password: encryptedPassword },
+      ];
+    }
+    setPasswordArray(updatedArray);
+    localStorage.setItem("passwords", JSON.stringify(updatedArray));
+    toast.success(editingId ? "Password is updated!" : "Password is added!");
+    resetForm();
   };
 
   const handleChange = (e) => {
@@ -59,19 +76,31 @@ const Manager = () => {
       const updatedArray = passwordArray.filter((item) => item.id !== id);
       setPasswordArray(updatedArray);
       localStorage.setItem("passwords", JSON.stringify(updatedArray));
+      if (editingId === id) resetForm();
       toast.success("Password is deleted!");
     }
   };
 
-  // Function to handle editing a password
-  // from the password array
+  // Load an entry into the form. The entry stays in the list until the
+  // edit is saved, so cancelling never loses data.
   const handelEdit = (id) => {
     const selectedItem = passwordArray.find((item) => item.id === id);
-    if (selectedItem) {
-      setForm(selectedItem);
-      const updatedArray = passwordArray.filter((item) => item.id !== id);
-      setPasswordArray(updatedArray);
+    if (!selectedItem) return;
+    let plain = "";
+    try {
+      plain = CryptoJS.AES.decrypt(selectedItem.password, secretKey).toString(
+        CryptoJS.enc.Utf8
+      );
+    } catch {
+      toast.error("Could not decrypt this password.");
+      return;
     }
+    setForm({
+      site: selectedItem.site,
+      username: selectedItem.username,
+      password: plain,
+    });
+    setEditingId(id);
   };
 
   return (
@@ -139,14 +168,48 @@ const Manager = () => {
               </span>
             </div>
           </div>
-          <button className="flex items-center m-auto bg-purple-600 w-fit text-white rounded-lg p-2 hover:ring-2">
-            <lord-icon
-              src="https://cdn.lordicon.com/jgnvfzqg.json"
-              trigger="hover"
-              className="mr-2"
-            ></lord-icon>
-            Add Password
-          </button>
+          <div className="flex items-center gap-3 -mt-2">
+            <button
+              type="button"
+              className="text-sm text-purple-700 underline"
+              onClick={() => {
+                setForm({ ...form, password: generatePassword() });
+                setShowPassword(true);
+              }}
+            >
+              Generate strong password
+            </button>
+            {form.password && (
+              <div className="flex items-center gap-2 text-sm flex-1">
+                <div className="h-2 flex-1 rounded bg-gray-200 overflow-hidden">
+                  <div
+                    className={`h-full ${strength.color} transition-all`}
+                    style={{ width: `${strength.percent}%` }}
+                  ></div>
+                </div>
+                <span>{strength.label}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-center gap-3">
+            <button className="flex items-center bg-purple-600 w-fit text-white rounded-lg p-2 hover:ring-2">
+              <lord-icon
+                src="https://cdn.lordicon.com/jgnvfzqg.json"
+                trigger="hover"
+                className="mr-2"
+              ></lord-icon>
+              {editingId ? "Update Password" : "Add Password"}
+            </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="bg-gray-300 text-black rounded-lg p-2 hover:ring-2"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
       </form>
       <div className="container mx-auto mt-5 max-w-4xl">
