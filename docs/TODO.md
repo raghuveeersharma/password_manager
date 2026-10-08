@@ -2,6 +2,8 @@
 
 Legend: `[ ]` open · `[x]` done. Detailed backend steps are in BACKEND_PLAN.md.
 
+Commits: one per phase (`Phase 0` … `Phase 5`). Phase 5 deployment items remain open.
+
 ## Phase 0 — Frontend fixes (before backend)
 - [x] Remove `console.log` of master password in `TableComponent.jsx`
 - [x] Use `item.id` as React `key` instead of `index`
