@@ -1,3 +1,5 @@
+# Local dev:   docker compose up -d mongo     (then run uvicorn on the host)
+# Full stack:  docker compose up --build      (api + mongo; reads settings from ./.env)
 services:
   mongo:
     image: mongo:7
@@ -5,6 +7,20 @@ services:
       - "127.0.0.1:27017:27017"
     volumes:
       - mongo_data:/data/db
+
+  api:
+    build: .
+    depends_on:
+      - mongo
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Inside the compose network Mongo is reachable by service name.
+      MONGODB_URL: mongodb://mongo:27017
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    restart: unless-stopped
 
 volumes:
   mongo_data:

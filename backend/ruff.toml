@@ -1,0 +1,7 @@
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "B", "UP"]
+# FastAPI's dependency injection is written as `x = Depends(...)` in signatures.
+ignore = ["B008"]
