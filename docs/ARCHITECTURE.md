@@ -98,6 +98,7 @@ Item ids exposed to the frontend are the `_id` as a string. The frontend's old u
 | POST | `/auth/logout` | revoke refresh token |
 | GET | `/vault` | list current user's items |
 | POST | `/vault` | create item |
+| GET | `/vault/{id}` | get one item |
 | PUT | `/vault/{id}` | update item |
 | DELETE | `/vault/{id}` | delete item |
 

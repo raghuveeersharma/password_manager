@@ -3,63 +3,41 @@ import { toast } from "react-hot-toast";
 import { FaRegSadCry } from "react-icons/fa";
 import { IoMdEye } from "react-icons/io";
 import { FaEyeSlash } from "react-icons/fa";
-import CryptoJS from "crypto-js";
+import { decrypt } from "../crypto/vault";
 
-const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
-  const secretKey = import.meta.env.VITE_SECRET_KEY;
+const TableComponent = ({ items, encKey, deletePassword, handelEdit }) => {
   // id -> decrypted password, only for rows the user has revealed
   const [revealed, setRevealed] = useState({});
 
-  // Decrypt the password using AES
-  const decryptedPassword = (encryptedPassword) => {
-    const bytes = CryptoJS.AES.decrypt(encryptedPassword, secretKey);
-    return bytes.toString(CryptoJS.enc.Utf8);
-  };
+  const decryptItem = (item) =>
+    decrypt(encKey, item.password_ciphertext, item.iv).catch(() => {
+      toast.error("Could not decrypt this password.");
+      return null;
+    });
 
-  // Ask for the master password; returns true only if it matches
-  const verifyMaster = (message) => {
-    const userInput = prompt(message);
-    if (userInput === null) return false; // cancelled
-    const storedEncrypted = localStorage.getItem("PassManager");
-
-    if (!storedEncrypted) {
-      toast.error("No stored master password.");
-      return false;
-    }
-
-    if (userInput.trim() !== decryptedPassword(storedEncrypted).trim()) {
-      toast.error("Incorrect password!");
-      return false;
-    }
-    return true;
-  };
-
-  // Handle copy securely
-  const handleCopy = (encryptedText) => {
-    if (
-      !verifyMaster("Enter your master password to copy the password securely:")
-    )
-      return;
-    navigator.clipboard.writeText(decryptedPassword(encryptedText));
+  const handleCopy = async (item) => {
+    const plain = await decryptItem(item);
+    if (plain === null) return;
+    navigator.clipboard.writeText(plain);
     toast.success("Password copied to clipboard!");
   };
 
-  // Show or hide a password in the table (hiding needs no prompt)
-  const toggleReveal = (item) => {
+  // Show or hide a password in the table
+  const toggleReveal = async (item) => {
     if (revealed[item.id] !== undefined) {
       const rest = { ...revealed };
       delete rest[item.id];
       setRevealed(rest);
       return;
     }
-    if (!verifyMaster("Enter your master password to reveal the password:"))
-      return;
-    setRevealed({ ...revealed, [item.id]: decryptedPassword(item.password) });
+    const plain = await decryptItem(item);
+    if (plain === null) return;
+    setRevealed((prev) => ({ ...prev, [item.id]: plain }));
   };
 
   return (
     <div className=" px-3  ">
-      {passwordArray.length === 0 ? (
+      {items.length === 0 ? (
         <div className="flex flex-col items-center mt-3 text-center">
           <p className="text-lg text-gray-600 mt-2">No passwords saved</p>
           <FaRegSadCry className="text-3xl text-gray-500 mt-2" />
@@ -85,7 +63,7 @@ const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
                 </tr>
               </thead>
               <tbody className="divide-y  divide-purple-100 ">
-                {passwordArray.map((item) => (
+                {items.map((item) => (
                   <tr
                     key={item.id}
                     className="hover:bg-purple-100 transition-colors"
@@ -132,7 +110,7 @@ const TableComponent = ({ passwordArray, deletePassword, handelEdit }) => {
                       </span>
                       <span
                         className="ml-2 inline-block sm:ml-3 cursor-pointer"
-                        onClick={() => handleCopy(item.password)}
+                        onClick={() => handleCopy(item)}
                       >
                         <lord-icon
                           src="https://cdn.lordicon.com/iykgtsbt.json"
