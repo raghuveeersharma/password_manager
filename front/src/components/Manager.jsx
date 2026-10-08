@@ -1,33 +1,54 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { RiLockPasswordFill } from "react-icons/ri";
 import { IoMdEye } from "react-icons/io";
 import { FaEyeSlash } from "react-icons/fa";
 import { getStrength, generatePassword } from "../utils/password";
 import TableComponent from "./TableComponent";
-import { Toaster, toast } from "react-hot-toast";
-import { v4 as uuidv4 } from "uuid";
-import CryptoJS from "crypto-js";
+import { toast } from "react-hot-toast";
+import { api } from "../api/client";
+import { useAuth } from "../context/AuthContext";
+import { decrypt, encrypt } from "../crypto/vault";
+import {
+  decryptLegacy,
+  legacyKeyAvailable,
+  readLegacyItems,
+  writeLegacyRemainder,
+} from "../crypto/legacy";
 
 const Manager = () => {
+  const { encKey } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [passwordArray, setPasswordArray] = useState([]);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [legacyCount, setLegacyCount] = useState(() =>
+    legacyKeyAvailable ? readLegacyItems().length : 0
+  );
+  const [importing, setImporting] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     site: "",
     username: "",
     password: "",
   });
-  const secretKey = import.meta.env.VITE_SECRET_KEY;
   const strength = getStrength(form.password);
 
-  // Check if the password is already saved in local storage
-  // when the component mounts
-  useEffect(() => {
-    const passwords = localStorage.getItem("passwords");
-    if (passwords) {
-      setPasswordArray(JSON.parse(passwords));
+  const loadItems = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      setItems(await api.vault.list());
+    } catch (err) {
+      setLoadError(err.message);
+    } finally {
+      setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
 
   const resetForm = () => {
     setForm({ site: "", username: "", password: "" });
@@ -35,72 +56,96 @@ const Manager = () => {
     setShowPassword(false);
   };
 
-  // Function to save a password (new entry, or an in-place update when editing)
-  const savePassword = (e) => {
+  // Save a password (new entry, or an in-place update when editing).
+  // The password is encrypted in the browser; the server only receives ciphertext.
+  const savePassword = async (e) => {
     e.preventDefault();
+    if (saving) return;
     if (form.site === "" || form.username === "" || form.password === "") {
       toast.error("All fields are required!");
       return;
     }
-    const encryptedPassword = CryptoJS.AES.encrypt(
-      form.password,
-      secretKey
-    ).toString();
-    let updatedArray;
-    if (editingId) {
-      updatedArray = passwordArray.map((item) =>
-        item.id === editingId
-          ? { ...form, id: editingId, password: encryptedPassword }
-          : item
-      );
-    } else {
-      updatedArray = [
-        ...passwordArray,
-        { ...form, id: uuidv4(), password: encryptedPassword },
-      ];
+    setSaving(true);
+    try {
+      const payload = {
+        site: form.site,
+        username: form.username,
+        ...(await encrypt(encKey, form.password)),
+      };
+      if (editingId) {
+        const saved = await api.vault.update(editingId, payload);
+        setItems((prev) => prev.map((item) => (item.id === editingId ? saved : item)));
+      } else {
+        const saved = await api.vault.create(payload);
+        setItems((prev) => [saved, ...prev]);
+      }
+      toast.success(editingId ? "Password is updated!" : "Password is added!");
+      resetForm();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
     }
-    setPasswordArray(updatedArray);
-    localStorage.setItem("passwords", JSON.stringify(updatedArray));
-    toast.success(editingId ? "Password is updated!" : "Password is added!");
-    resetForm();
   };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Function to delete a password
-  // from the password array
-  const deletePassword = (id) => {
-    if (confirm("Are you sure you want to delete this password?")) {
-      const updatedArray = passwordArray.filter((item) => item.id !== id);
-      setPasswordArray(updatedArray);
-      localStorage.setItem("passwords", JSON.stringify(updatedArray));
+  const deletePassword = async (id) => {
+    if (!confirm("Are you sure you want to delete this password?")) return;
+    try {
+      await api.vault.remove(id);
+      setItems((prev) => prev.filter((item) => item.id !== id));
       if (editingId === id) resetForm();
       toast.success("Password is deleted!");
+    } catch (err) {
+      toast.error(err.message);
     }
   };
 
   // Load an entry into the form. The entry stays in the list until the
   // edit is saved, so cancelling never loses data.
-  const handelEdit = (id) => {
-    const selectedItem = passwordArray.find((item) => item.id === id);
+  const handelEdit = async (id) => {
+    const selectedItem = items.find((item) => item.id === id);
     if (!selectedItem) return;
-    let plain = "";
     try {
-      plain = CryptoJS.AES.decrypt(selectedItem.password, secretKey).toString(
-        CryptoJS.enc.Utf8
-      );
+      const plain = await decrypt(encKey, selectedItem.password_ciphertext, selectedItem.iv);
+      setForm({
+        site: selectedItem.site,
+        username: selectedItem.username,
+        password: plain,
+      });
+      setEditingId(id);
     } catch {
       toast.error("Could not decrypt this password.");
-      return;
     }
-    setForm({
-      site: selectedItem.site,
-      username: selectedItem.username,
-      password: plain,
-    });
-    setEditingId(id);
+  };
+
+  // One-time import of entries saved in this browser before the backend existed.
+  // Entries are removed from localStorage only after the server accepted them.
+  const importLegacy = async () => {
+    setImporting(true);
+    const failed = [];
+    const imported = [];
+    for (const old of readLegacyItems()) {
+      try {
+        const payload = {
+          site: old.site,
+          username: old.username,
+          ...(await encrypt(encKey, decryptLegacy(old.password))),
+        };
+        imported.push(await api.vault.create(payload));
+      } catch {
+        failed.push(old);
+      }
+    }
+    writeLegacyRemainder(failed);
+    setLegacyCount(failed.length);
+    setItems((prev) => [...imported, ...prev]);
+    setImporting(false);
+    if (failed.length === 0) toast.success(`Imported ${imported.length} passwords!`);
+    else toast.error(`Imported ${imported.length}, ${failed.length} failed. They are still saved in this browser.`);
   };
 
   return (
@@ -108,8 +153,6 @@ const Manager = () => {
       <div className="absolute inset-0 -z-10 h-full w-full bg-purple-100 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
         <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-fuchsia-400 opacity-20 blur-[100px]"></div>
       </div>
-      <Toaster position="top-center" reverseOrder={false} />
-
       <form
         className="container mx-auto max-w-4xl p-3 "
         onSubmit={savePassword}
@@ -192,13 +235,16 @@ const Manager = () => {
             )}
           </div>
           <div className="flex justify-center gap-3">
-            <button className="flex items-center bg-purple-600 w-fit text-white rounded-lg p-2 hover:ring-2">
+            <button
+              disabled={saving}
+              className="flex items-center bg-purple-600 w-fit text-white rounded-lg p-2 hover:ring-2 disabled:opacity-60"
+            >
               <lord-icon
                 src="https://cdn.lordicon.com/jgnvfzqg.json"
                 trigger="hover"
                 className="mr-2"
               ></lord-icon>
-              {editingId ? "Update Password" : "Add Password"}
+              {saving ? "Saving…" : editingId ? "Update Password" : "Add Password"}
             </button>
             {editingId && (
               <button
@@ -216,11 +262,38 @@ const Manager = () => {
         <h1 className="text-xl font-bold ml-6 md:ml-3">
           Your Passwords <RiLockPasswordFill className="inline-block text-lg" />
         </h1>
-        <TableComponent
-          passwordArray={passwordArray}
-          deletePassword={deletePassword}
-          handelEdit={handelEdit}
-        />
+        {legacyCount > 0 && (
+          <div className="mx-3 mt-2 p-3 rounded-lg bg-amber-100 text-sm flex flex-wrap items-center gap-3">
+            <span>
+              Found {legacyCount} password{legacyCount === 1 ? "" : "s"} saved in this browser
+              from the old version.
+            </span>
+            <button
+              onClick={importLegacy}
+              disabled={importing}
+              className="bg-purple-600 text-white rounded-lg px-3 py-1 hover:ring-2 disabled:opacity-60"
+            >
+              {importing ? "Importing…" : "Import to my account"}
+            </button>
+          </div>
+        )}
+        {loading ? (
+          <p className="text-center mt-3 text-gray-600">Loading your passwords…</p>
+        ) : loadError ? (
+          <div className="text-center mt-3">
+            <p className="text-red-600">{loadError}</p>
+            <button onClick={loadItems} className="mt-2 text-purple-700 underline">
+              Try again
+            </button>
+          </div>
+        ) : (
+          <TableComponent
+            items={items}
+            encKey={encKey}
+            deletePassword={deletePassword}
+            handelEdit={handelEdit}
+          />
+        )}
       </div>
     </>
   );
